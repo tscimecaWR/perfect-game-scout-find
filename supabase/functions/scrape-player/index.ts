@@ -47,19 +47,31 @@ serve(async (req) => {
     // Parse the HTML to extract player data
     const playerData = parsePlayerData(html, playerId, profileUrl)
     
-    if (!playerData.name) {
+    // Check if we got any meaningful data (not just empty strings)
+    const hasAnyData = playerData.name || 
+                      playerData.height || 
+                      playerData.weight || 
+                      playerData.graduation_year || 
+                      playerData.positions || 
+                      playerData.bats || 
+                      playerData.throws || 
+                      playerData.showcase_report
+    
+    if (!hasAnyData) {
       return new Response(
         JSON.stringify({ error: 'Player not found or profile is private' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Save to database
+    // Save to database - use player name or fallback to "Unknown Player" if empty
+    const playerName = playerData.name || `Player ${playerId}`
+    
     const { data, error } = await supabase
       .from('perfect_game_players')
       .upsert({
         player_id: playerId,
-        name: playerData.name,
+        name: playerName,
         height: playerData.height,
         weight: playerData.weight,
         graduation_year: playerData.graduation_year,
