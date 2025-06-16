@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,19 +25,20 @@ interface PlayerData {
 }
 
 interface BatchProgress {
-  chunkIndex: number;
+  currentChunk: number;
   totalChunks: number;
-  successful: number;
-  failed: number;
-  processed: number;
+  overallSuccessful: number;
+  overallFailed: number;
+  overallProcessed: number;
   total: number;
+  isComplete: boolean;
 }
 
 export const ProfileScraper = () => {
   const [currentId, setCurrentId] = useState(493019);
   const [startId, setStartId] = useState(493019);
   const [endId, setEndId] = useState(493030);
-  const [chunkSize, setChunkSize] = useState(50);
+  const [chunkSize, setChunkSize] = useState(25); // Reduced default chunk size
   const [playerData, setPlayerData] = useState<PlayerData[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerData | null>(null);
   const [isAutoStepping, setIsAutoStepping] = useState(false);
@@ -150,44 +150,118 @@ export const ProfileScraper = () => {
     }
 
     setIsBatchScraping(true);
-    setBatchProgress(null);
+    const totalPlayers = endId - startId + 1;
+    const totalChunks = Math.ceil(totalPlayers / chunkSize);
+    
+    // Initialize progress tracking
+    const progress: BatchProgress = {
+      currentChunk: 0,
+      totalChunks,
+      overallSuccessful: 0,
+      overallFailed: 0,
+      overallProcessed: 0,
+      total: totalPlayers,
+      isComplete: false
+    };
+    setBatchProgress(progress);
     
     try {
       console.log(`Starting chunked batch scrape from ${startId} to ${endId} with chunk size ${chunkSize}`);
+      console.log(`Total players: ${totalPlayers}, Total chunks: ${totalChunks}`);
       
       toast({
         title: "Batch Scraping Started",
-        description: `Scraping ${endId - startId + 1} profiles in chunks of ${chunkSize}...`,
+        description: `Scraping ${totalPlayers} profiles in ${totalChunks} chunks of ${chunkSize}...`,
         duration: 3000,
       });
 
-      // Call the edge function to scrape the range with chunking
-      const { data, error } = await supabase.functions.invoke('scrape-player', {
-        body: { startId, endId, chunkSize }
+      // Process each chunk separately
+      for (let chunkIndex = 1; chunkIndex <= totalChunks; chunkIndex++) {
+        const chunkStartId = startId + ((chunkIndex - 1) * chunkSize);
+        const chunkEndId = Math.min(chunkStartId + chunkSize - 1, endId);
+        
+        console.log(`Processing chunk ${chunkIndex}/${totalChunks}: IDs ${chunkStartId} to ${chunkEndId}`);
+        
+        // Update progress for current chunk
+        setBatchProgress(prev => prev ? {
+          ...prev,
+          currentChunk: chunkIndex
+        } : null);
+
+        try {
+          // Call the edge function for this specific chunk
+          const { data, error } = await supabase.functions.invoke('scrape-player', {
+            body: { 
+              startId: chunkStartId, 
+              endId: chunkEndId,
+              chunkIndex,
+              totalChunks
+            }
+          });
+
+          if (error) throw error;
+
+          if (data.success && data.results) {
+            const chunkResults = data.results;
+            
+            // Update overall progress
+            setBatchProgress(prev => prev ? {
+              ...prev,
+              overallSuccessful: prev.overallSuccessful + chunkResults.successful,
+              overallFailed: prev.overallFailed + chunkResults.failed,
+              overallProcessed: prev.overallProcessed + chunkResults.totalPlayers
+            } : null);
+            
+            toast({
+              title: `Chunk ${chunkIndex}/${totalChunks} Complete`,
+              description: `${chunkResults.successful} successful, ${chunkResults.failed} failed`,
+              duration: 2000,
+            });
+            
+            console.log(`Chunk ${chunkIndex} results:`, chunkResults);
+          } else {
+            throw new Error(data.error || `Failed to scrape chunk ${chunkIndex}`);
+          }
+        } catch (chunkError) {
+          console.error(`Error processing chunk ${chunkIndex}:`, chunkError);
+          
+          // Update failed count for this chunk
+          setBatchProgress(prev => prev ? {
+            ...prev,
+            overallFailed: prev.overallFailed + (chunkEndId - chunkStartId + 1),
+            overallProcessed: prev.overallProcessed + (chunkEndId - chunkStartId + 1)
+          } : null);
+          
+          toast({
+            title: `Chunk ${chunkIndex} Failed`,
+            description: chunkError.message || "Could not process chunk",
+            variant: "destructive",
+            duration: 3000,
+          });
+        }
+
+        // Small delay between chunks to prevent overwhelming the server
+        if (chunkIndex < totalChunks) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // Mark as complete
+      setBatchProgress(prev => prev ? {
+        ...prev,
+        isComplete: true
+      } : null);
+
+      const finalProgress = batchProgress;
+      toast({
+        title: "Batch Scraping Complete",
+        description: `Successfully scraped ${finalProgress?.overallSuccessful || 0} of ${totalPlayers} profiles`,
+        duration: 5000,
       });
 
-      if (error) throw error;
-
-      if (data.success) {
-        const results = data.results;
-        
-        toast({
-          title: "Batch Scraping Complete",
-          description: `Successfully scraped ${results.successful} of ${results.total} profiles in ${results.totalChunks} chunks`,
-          duration: 5000,
-        });
-
-        // Reload data from database to get the new records
-        await loadExistingData();
-        
-        console.log('Batch scraping results:', results);
-        
-        if (results.errors.length > 0) {
-          console.log('Scraping errors:', results.errors);
-        }
-      } else {
-        throw new Error(data.error || 'Failed to scrape range');
-      }
+      // Reload data from database to get the new records
+      await loadExistingData();
+      
     } catch (error) {
       console.error('Batch scraping error:', error);
       toast({
@@ -198,7 +272,8 @@ export const ProfileScraper = () => {
       });
     } finally {
       setIsBatchScraping(false);
-      setBatchProgress(null);
+      // Keep progress visible for a moment after completion
+      setTimeout(() => setBatchProgress(null), 3000);
     }
   };
 
@@ -389,10 +464,10 @@ export const ProfileScraper = () => {
                     <Input
                       type="number"
                       value={chunkSize}
-                      onChange={(e) => setChunkSize(parseInt(e.target.value) || 50)}
+                      onChange={(e) => setChunkSize(parseInt(e.target.value) || 25)}
                       className="w-20"
-                      min="10"
-                      max="100"
+                      min="5"
+                      max="50"
                     />
                   </div>
                   <Badge variant="secondary" className="text-sm">
@@ -440,19 +515,19 @@ export const ProfileScraper = () => {
                   <div className="flex justify-between text-sm text-gray-600">
                     <span>
                       {batchProgress 
-                        ? `Chunk ${batchProgress.chunkIndex}/${batchProgress.totalChunks} - ${batchProgress.processed}/${batchProgress.total} players processed`
+                        ? `Chunk ${batchProgress.currentChunk}/${batchProgress.totalChunks} - ${batchProgress.overallProcessed}/${batchProgress.total} players processed`
                         : 'Starting batch scraping...'
                       }
                     </span>
                     <span>
                       {batchProgress 
-                        ? `${batchProgress.successful} successful, ${batchProgress.failed} failed`
+                        ? `${batchProgress.overallSuccessful} successful, ${batchProgress.overallFailed} failed`
                         : ''
                       }
                     </span>
                   </div>
                   <Progress 
-                    value={batchProgress ? (batchProgress.processed / batchProgress.total) * 100 : 0} 
+                    value={batchProgress ? (batchProgress.overallProcessed / batchProgress.total) * 100 : 0} 
                     className="w-full h-2"
                   />
                 </div>

@@ -13,16 +13,16 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { playerId, startId, endId, chunkSize = 50 } = body
+    const { playerId, startId, endId, chunkIndex, totalChunks } = body
     
     // Handle single player scraping
     if (playerId && !startId && !endId) {
       return await scrapeSinglePlayer(playerId)
     }
     
-    // Handle range scraping with chunking
+    // Handle single chunk scraping
     if (startId && endId) {
-      return await scrapePlayerRangeWithChunking(startId, endId, chunkSize)
+      return await scrapeSingleChunk(startId, endId, chunkIndex, totalChunks)
     }
     
     return new Response(
@@ -126,151 +126,111 @@ async function scrapeSinglePlayer(playerId: number) {
   }
 }
 
-async function scrapePlayerRangeWithChunking(startId: number, endId: number, chunkSize: number) {
+async function scrapeSingleChunk(startId: number, endId: number, chunkIndex: number, totalChunks: number) {
   // Initialize Supabase client
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const totalPlayers = endId - startId + 1
-  const chunks = Math.ceil(totalPlayers / chunkSize)
   
-  const overallResults = {
-    total: totalPlayers,
+  const chunkResults = {
+    chunkIndex,
+    totalChunks,
     successful: 0,
     failed: 0,
     errors: [] as string[],
-    chunksCompleted: 0,
-    totalChunks: chunks
+    startId,
+    endId,
+    totalPlayers
   }
 
-  console.log(`Starting chunked batch scrape from ID ${startId} to ${endId}`)
-  console.log(`Total players: ${totalPlayers}, Chunk size: ${chunkSize}, Total chunks: ${chunks}`)
+  console.log(`Processing chunk ${chunkIndex}/${totalChunks}: IDs ${startId} to ${endId}`)
+  
+  // Process players in this chunk
+  for (let playerId = startId; playerId <= endId; playerId++) {
+    try {
+      const profileUrl = `https://www.perfectgame.org/Players/Playerprofile.aspx?ID=${playerId}`
+      
+      // Fetch the profile page
+      const response = await fetch(profileUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      })
 
-  // Process each chunk
-  for (let chunkIndex = 0; chunkIndex < chunks; chunkIndex++) {
-    const chunkStartId = startId + (chunkIndex * chunkSize)
-    const chunkEndId = Math.min(chunkStartId + chunkSize - 1, endId)
-    
-    console.log(`Processing chunk ${chunkIndex + 1}/${chunks}: IDs ${chunkStartId} to ${chunkEndId}`)
-    
-    // Process players in current chunk
-    for (let playerId = chunkStartId; playerId <= chunkEndId; playerId++) {
-      try {
-        const profileUrl = `https://www.perfectgame.org/Players/Playerprofile.aspx?ID=${playerId}`
-        
-        // Fetch the profile page
-        const response = await fetch(profileUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
+      if (!response.ok) {
+        chunkResults.failed++
+        chunkResults.errors.push(`ID ${playerId}: Failed to fetch profile (${response.status})`)
+        continue
+      }
+
+      const html = await response.text()
+      
+      // Parse the HTML to extract player data
+      const playerData = parsePlayerData(html, playerId, profileUrl)
+      
+      // Check if we got any meaningful data
+      const hasAnyData = playerData.name || 
+                        playerData.height || 
+                        playerData.weight || 
+                        playerData.graduation_year || 
+                        playerData.positions || 
+                        playerData.bats || 
+                        playerData.throws || 
+                        playerData.showcase_report
+      
+      if (!hasAnyData) {
+        chunkResults.failed++
+        chunkResults.errors.push(`ID ${playerId}: No data found or profile is private`)
+        continue
+      }
+
+      // Save to database
+      const playerName = playerData.name || `Player ${playerId}`
+      
+      const { error } = await supabase
+        .from('perfect_game_players')
+        .upsert({
+          player_id: playerId,
+          name: playerName,
+          height: playerData.height,
+          weight: playerData.weight,
+          graduation_year: playerData.graduation_year,
+          positions: playerData.positions,
+          bats: playerData.bats,
+          throws: playerData.throws,
+          profile_url: profileUrl,
+          showcase_report: playerData.showcase_report,
+          scraped_at: new Date().toISOString()
         })
 
-        if (!response.ok) {
-          overallResults.failed++
-          overallResults.errors.push(`ID ${playerId}: Failed to fetch profile (${response.status})`)
-          continue
-        }
-
-        const html = await response.text()
-        
-        // Parse the HTML to extract player data
-        const playerData = parsePlayerData(html, playerId, profileUrl)
-        
-        // Check if we got any meaningful data
-        const hasAnyData = playerData.name || 
-                          playerData.height || 
-                          playerData.weight || 
-                          playerData.graduation_year || 
-                          playerData.positions || 
-                          playerData.bats || 
-                          playerData.throws || 
-                          playerData.showcase_report
-        
-        if (!hasAnyData) {
-          overallResults.failed++
-          overallResults.errors.push(`ID ${playerId}: No data found or profile is private`)
-          continue
-        }
-
-        // Save to database
-        const playerName = playerData.name || `Player ${playerId}`
-        
-        const { error } = await supabase
-          .from('perfect_game_players')
-          .upsert({
-            player_id: playerId,
-            name: playerName,
-            height: playerData.height,
-            weight: playerData.weight,
-            graduation_year: playerData.graduation_year,
-            positions: playerData.positions,
-            bats: playerData.bats,
-            throws: playerData.throws,
-            profile_url: profileUrl,
-            showcase_report: playerData.showcase_report,
-            scraped_at: new Date().toISOString()
-          })
-
-        if (error) {
-          overallResults.failed++
-          overallResults.errors.push(`ID ${playerId}: Database error - ${error.message}`)
-          console.error(`Database error for player ${playerId}:`, error)
-        } else {
-          overallResults.successful++
-          console.log(`Successfully scraped player ${playerId}: ${playerName}`)
-        }
-
-        // Reduced delay to 200ms for faster processing
-        await new Promise(resolve => setTimeout(resolve, 200))
-
-      } catch (error) {
-        overallResults.failed++
-        overallResults.errors.push(`ID ${playerId}: ${error.message}`)
-        console.error(`Error scraping player ${playerId}:`, error)
+      if (error) {
+        chunkResults.failed++
+        chunkResults.errors.push(`ID ${playerId}: Database error - ${error.message}`)
+        console.error(`Database error for player ${playerId}:`, error)
+      } else {
+        chunkResults.successful++
+        console.log(`Successfully scraped player ${playerId}: ${playerName}`)
       }
-    }
 
-    // Update chunk completion
-    overallResults.chunksCompleted = chunkIndex + 1
-    
-    // Send progress update via realtime if we have more chunks to process
-    if (chunkIndex < chunks - 1) {
-      try {
-        await supabase
-          .channel('scraping-progress')
-          .send({
-            type: 'broadcast',
-            event: 'chunk-completed',
-            payload: {
-              chunkIndex: chunkIndex + 1,
-              totalChunks: chunks,
-              successful: overallResults.successful,
-              failed: overallResults.failed,
-              processed: (chunkIndex + 1) * chunkSize,
-              total: totalPlayers
-            }
-          })
-      } catch (error) {
-        console.error('Failed to send progress update:', error)
-      }
-    }
-
-    console.log(`Completed chunk ${chunkIndex + 1}/${chunks}. Progress: ${overallResults.successful} successful, ${overallResults.failed} failed`)
-    
-    // Small delay between chunks
-    if (chunkIndex < chunks - 1) {
+      // Reduced delay to 100ms for faster processing
       await new Promise(resolve => setTimeout(resolve, 100))
+
+    } catch (error) {
+      chunkResults.failed++
+      chunkResults.errors.push(`ID ${playerId}: ${error.message}`)
+      console.error(`Error scraping player ${playerId}:`, error)
     }
   }
 
-  console.log(`Chunked batch scrape completed. Total: ${overallResults.successful} successful, ${overallResults.failed} failed`)
+  console.log(`Completed chunk ${chunkIndex}/${totalChunks}. Results: ${chunkResults.successful} successful, ${chunkResults.failed} failed`)
 
   return new Response(
     JSON.stringify({ 
       success: true, 
-      message: `Chunked batch scrape completed`,
-      results: overallResults
+      message: `Chunk ${chunkIndex} completed`,
+      results: chunkResults
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
