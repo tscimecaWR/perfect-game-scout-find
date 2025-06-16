@@ -13,8 +13,8 @@ interface PlayerData {
   id: number;
   player_id: number;
   name: string;
-  height: string;
-  weight: string;
+  height: number | null;
+  weight: number | null;
   graduation_year: string;
   positions: string;
   bats: string;

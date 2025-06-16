@@ -9,8 +9,8 @@ interface PlayerData {
   id: number;
   player_id: number;
   name: string;
-  height: string;
-  weight: string;
+  height: number | null;
+  weight: number | null;
   graduation_year: string;
   positions: string;
   bats: string;
@@ -31,6 +31,13 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
 
   const openProfile = () => {
     window.open(player.profile_url, '_blank');
+  };
+
+  const formatHeight = (inches: number | null) => {
+    if (!inches) return null;
+    const feet = Math.floor(inches / 12);
+    const remainingInches = inches % 12;
+    return `${feet}'${remainingInches}"`;
   };
 
   return (
@@ -63,7 +70,7 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
               <Ruler className="w-5 h-5 text-blue-600" />
               <div>
                 <p className="text-sm font-medium text-gray-700">Height</p>
-                <p className="text-lg font-semibold text-gray-900">{player.height}</p>
+                <p className="text-lg font-semibold text-gray-900">{formatHeight(player.height)}</p>
               </div>
             </div>
           )}
@@ -73,7 +80,7 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
               <Weight className="w-5 h-5 text-green-600" />
               <div>
                 <p className="text-sm font-medium text-gray-700">Weight</p>
-                <p className="text-lg font-semibold text-gray-900">{player.weight}</p>
+                <p className="text-lg font-semibold text-gray-900">{player.weight} lbs</p>
               </div>
             </div>
           )}
