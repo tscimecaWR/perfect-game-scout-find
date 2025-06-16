@@ -9,6 +9,8 @@ export interface PlayerData {
   positions: string;
   bats: string;
   throws: string;
+  city: string | null;
+  state: string | null;
   profile_url: string;
   showcase_report: string;
   scraped_at: string;

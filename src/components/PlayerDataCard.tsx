@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, User, Ruler, Weight, GraduationCap, FileText, Clock, Target, Hand } from 'lucide-react';
+import { ExternalLink, User, Ruler, Weight, GraduationCap, FileText, Clock, Target, Hand, MapPin } from 'lucide-react';
 
 interface PlayerData {
   id: number;
@@ -15,6 +15,8 @@ interface PlayerData {
   positions: string;
   bats: string;
   throws: string;
+  city: string | null;
+  state: string | null;
   profile_url: string;
   showcase_report: string;
   scraped_at: string;
@@ -38,6 +40,17 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
     const feet = Math.floor(inches / 12);
     const remainingInches = inches % 12;
     return `${feet}'${remainingInches}"`;
+  };
+
+  const formatLocation = () => {
+    if (player.city && player.state) {
+      return `${player.city}, ${player.state}`;
+    } else if (player.city) {
+      return player.city;
+    } else if (player.state) {
+      return player.state;
+    }
+    return null;
   };
 
   return (
@@ -107,6 +120,19 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
             </div>
           )}
         </div>
+
+        {/* Location */}
+        {formatLocation() && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-red-600" />
+              <h3 className="font-semibold text-gray-900">Hometown</h3>
+            </div>
+            <div className="p-3 bg-red-50 rounded-lg border-l-4 border-red-200">
+              <p className="text-gray-700">{formatLocation()}</p>
+            </div>
+          </div>
+        )}
 
         {/* Positions */}
         {player.positions && (

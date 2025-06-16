@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -74,7 +75,9 @@ async function scrapeSinglePlayer(playerId: number) {
                       playerData.positions || 
                       playerData.bats || 
                       playerData.throws || 
-                      playerData.showcase_report
+                      playerData.showcase_report ||
+                      playerData.city ||
+                      playerData.state
     
     if (!hasAnyData) {
       return new Response(
@@ -97,6 +100,8 @@ async function scrapeSinglePlayer(playerId: number) {
         positions: playerData.positions,
         bats: playerData.bats,
         throws: playerData.throws,
+        city: playerData.city,
+        state: playerData.state,
         profile_url: profileUrl,
         showcase_report: playerData.showcase_report,
         scraped_at: new Date().toISOString()
@@ -178,7 +183,9 @@ async function scrapeSingleChunk(startId: number, endId: number, chunkIndex: num
                         playerData.positions || 
                         playerData.bats || 
                         playerData.throws || 
-                        playerData.showcase_report
+                        playerData.showcase_report ||
+                        playerData.city ||
+                        playerData.state
       
       if (!hasAnyData) {
         chunkResults.failed++
@@ -200,6 +207,8 @@ async function scrapeSingleChunk(startId: number, endId: number, chunkIndex: num
           positions: playerData.positions,
           bats: playerData.bats,
           throws: playerData.throws,
+          city: playerData.city,
+          state: playerData.state,
           profile_url: profileUrl,
           showcase_report: playerData.showcase_report,
           scraped_at: new Date().toISOString()
@@ -312,6 +321,30 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     }
   }
 
+  // Extract hometown (city and state) from the specific element ID
+  const hometownMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblHomeTown[^"]*"[^>]*>([^<]+)<\/span>/i)
+  let city = ''
+  let state = ''
+  
+  if (hometownMatch) {
+    const hometownText = hometownMatch[1].trim()
+    console.log(`Found hometown text: "${hometownText}"`)
+    
+    // Parse hometown format - typically "City, State" or "City, ST"
+    const commaIndex = hometownText.lastIndexOf(',')
+    if (commaIndex !== -1) {
+      city = hometownText.substring(0, commaIndex).trim()
+      state = hometownText.substring(commaIndex + 1).trim()
+      console.log(`Parsed hometown: city="${city}", state="${state}"`)
+    } else {
+      // If no comma, assume the whole thing is the city
+      city = hometownText
+      console.log(`No comma found, treating as city: "${city}"`)
+    }
+  } else {
+    console.log('Hometown element not found in HTML')
+  }
+
   // Extract showcase report with improved logic to capture full content
   let showcase_report = ''
   
@@ -387,7 +420,9 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     graduation_year,
     positions,
     bats,
-    throws
+    throws,
+    city,
+    state
   })
 
   return {
@@ -398,6 +433,8 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     positions,
     bats,
     throws,
+    city,
+    state,
     showcase_report
   }
 }
