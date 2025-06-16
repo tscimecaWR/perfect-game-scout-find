@@ -13,7 +13,8 @@ interface PlayerData {
   weight: string;
   graduation_year: string;
   positions: string;
-  handedness: string;
+  bats: string;
+  throws: string;
   profile_url: string;
   showcase_report: string;
   scraped_at: string;
@@ -87,12 +88,14 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
             </div>
           )}
 
-          {player.handedness && (
+          {(player.bats || player.throws) && (
             <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
               <Hand className="w-5 h-5 text-orange-600" />
               <div>
-                <p className="text-sm font-medium text-gray-700">B/T</p>
-                <p className="text-lg font-semibold text-gray-900">{player.handedness}</p>
+                <p className="text-sm font-medium text-gray-700">Bats/Throws</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {player.bats || '?'}/{player.throws || '?'}
+                </p>
               </div>
             </div>
           )}

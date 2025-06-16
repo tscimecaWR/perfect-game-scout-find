@@ -17,7 +17,8 @@ interface PlayerData {
   weight: string;
   graduation_year: string;
   positions: string;
-  handedness: string;
+  bats: string;
+  throws: string;
   profile_url: string;
   showcase_report: string;
   scraped_at: string;
@@ -114,9 +115,9 @@ export const ProfileScraper = () => {
 
   const exportData = () => {
     const csvContent = [
-      'ID,Player ID,Name,Height,Weight,Grad Year,Positions,Handedness,Profile URL,Showcase Report,Scraped At',
+      'ID,Player ID,Name,Height,Weight,Grad Year,Positions,Bats,Throws,Profile URL,Showcase Report,Scraped At',
       ...playerData.map(player => 
-        `${player.id},"${player.player_id}","${player.name}","${player.height}","${player.weight}","${player.graduation_year}","${player.positions}","${player.handedness}","${player.profile_url}","${player.showcase_report}","${player.scraped_at}"`
+        `${player.id},"${player.player_id}","${player.name}","${player.height}","${player.weight}","${player.graduation_year}","${player.positions}","${player.bats}","${player.throws}","${player.profile_url}","${player.showcase_report}","${player.scraped_at}"`
       )
     ].join('\n');
 
@@ -289,6 +290,9 @@ export const ProfileScraper = () => {
                   <div className="text-xs text-gray-600">Class of {player.graduation_year}</div>
                   {player.positions && (
                     <div className="text-xs text-gray-600">{player.positions}</div>
+                  )}
+                  {(player.bats || player.throws) && (
+                    <div className="text-xs text-gray-600">B/T: {player.bats || '?'}/{player.throws || '?'}</div>
                   )}
                 </div>
               ))}

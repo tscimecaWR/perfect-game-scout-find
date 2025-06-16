@@ -53,9 +53,9 @@ export type Database = {
       }
       perfect_game_players: {
         Row: {
+          bats: string | null
           created_at: string | null
           graduation_year: string | null
-          handedness: string | null
           height: string | null
           id: number
           name: string
@@ -64,13 +64,14 @@ export type Database = {
           profile_url: string
           scraped_at: string | null
           showcase_report: string | null
+          throws: string | null
           updated_at: string | null
           weight: string | null
         }
         Insert: {
+          bats?: string | null
           created_at?: string | null
           graduation_year?: string | null
-          handedness?: string | null
           height?: string | null
           id?: number
           name: string
@@ -79,13 +80,14 @@ export type Database = {
           profile_url: string
           scraped_at?: string | null
           showcase_report?: string | null
+          throws?: string | null
           updated_at?: string | null
           weight?: string | null
         }
         Update: {
+          bats?: string | null
           created_at?: string | null
           graduation_year?: string | null
-          handedness?: string | null
           height?: string | null
           id?: number
           name?: string
@@ -94,6 +96,7 @@ export type Database = {
           profile_url?: string
           scraped_at?: string | null
           showcase_report?: string | null
+          throws?: string | null
           updated_at?: string | null
           weight?: string | null
         }

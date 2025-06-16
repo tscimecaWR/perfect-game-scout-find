@@ -64,7 +64,8 @@ serve(async (req) => {
         weight: playerData.weight,
         graduation_year: playerData.graduation_year,
         positions: playerData.positions,
-        handedness: playerData.handedness,
+        bats: playerData.bats,
+        throws: playerData.throws,
         profile_url: profileUrl,
         showcase_report: playerData.showcase_report,
         scraped_at: new Date().toISOString()
@@ -115,9 +116,19 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   const positionMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblPos[^"]*"[^>]*>([^<]+)<\/span>/i)
   const positions = positionMatch ? positionMatch[1].trim() : ''
 
-  // Extract handedness (Bats/Throws)
-  const handsMatch = html.match(/B\/T[:\s]*([^<\n]+)/i) || html.match(/Bats\/Throws[:\s]*([^<\n]+)/i)
-  const handedness = handsMatch ? handsMatch[1].trim() : ''
+  // Extract bats and throws from the specific element ID
+  const batsThrowsMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblBT[^"]*"[^>]*>([^<]+)<\/span>/i)
+  let bats = ''
+  let throws = ''
+  
+  if (batsThrowsMatch) {
+    const batsThrowsText = batsThrowsMatch[1].trim()
+    const slashIndex = batsThrowsText.indexOf('/')
+    if (slashIndex !== -1) {
+      bats = batsThrowsText.substring(0, slashIndex).trim()
+      throws = batsThrowsText.substring(slashIndex + 1).trim()
+    }
+  }
 
   // Extract showcase report (look for recent report)
   const reportMatch = html.match(/<div[^>]*class="[^"]*report[^"]*"[^>]*>([^<]+)<\/div>/i) ||
@@ -130,7 +141,8 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     weight,
     graduation_year,
     positions,
-    handedness,
+    bats,
+    throws,
     showcase_report
   }
 }
