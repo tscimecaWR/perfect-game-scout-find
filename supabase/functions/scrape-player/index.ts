@@ -171,10 +171,16 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     }
   }
 
-  // Extract showcase report (look for recent report)
-  const reportMatch = html.match(/<div[^>]*class="[^"]*report[^"]*"[^>]*>([^<]+)<\/div>/i) ||
-                     html.match(/Report[:\s]*([^<\n]{20,})/i)
-  const showcase_report = reportMatch ? reportMatch[1].trim().substring(0, 500) : ''
+  // Extract showcase report from the specific element ID
+  const reportMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblLatestReport[^"]*"[^>]*>([^<]+)<\/span>/i)
+  let showcase_report = ''
+  
+  if (reportMatch) {
+    showcase_report = reportMatch[1].trim().substring(0, 500) // Limit to 500 characters
+    console.log(`Found showcase report: "${showcase_report.substring(0, 100)}..."`)
+  } else {
+    console.log('Showcase report element not found in HTML')
+  }
 
   console.log(`Final parsed data for player ${playerId}:`, {
     name,
