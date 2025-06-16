@@ -105,13 +105,19 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   let height = null
   if (heightMatch) {
     const heightText = heightMatch[1].trim()
+    console.log(`Found height text: "${heightText}"`)
     // Parse feet and inches (e.g., "6' 2\"" or "6'2\"")
     const feetInchesMatch = heightText.match(/(\d+)'?\s*(\d+)"?/)
     if (feetInchesMatch) {
       const feet = parseInt(feetInchesMatch[1])
       const inches = parseInt(feetInchesMatch[2])
       height = (feet * 12) + inches
+      console.log(`Parsed height: ${feet}' ${inches}" = ${height} inches`)
+    } else {
+      console.log(`Could not parse height from: "${heightText}"`)
     }
+  } else {
+    console.log('Height element not found in HTML')
   }
 
   // Extract weight from specific element ID and convert to integer
@@ -119,11 +125,17 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   let weight = null
   if (weightMatch) {
     const weightText = weightMatch[1].trim()
+    console.log(`Found weight text: "${weightText}"`)
     // Extract just the number from weight (e.g., "185 lbs" -> 185)
     const weightNumberMatch = weightText.match(/(\d+)/)
     if (weightNumberMatch) {
       weight = parseInt(weightNumberMatch[1])
+      console.log(`Parsed weight: ${weight} lbs`)
+    } else {
+      console.log(`Could not parse weight from: "${weightText}"`)
     }
+  } else {
+    console.log('Weight element not found in HTML')
   }
 
   // Extract graduation year
@@ -152,6 +164,16 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   const reportMatch = html.match(/<div[^>]*class="[^"]*report[^"]*"[^>]*>([^<]+)<\/div>/i) ||
                      html.match(/Report[:\s]*([^<\n]{20,})/i)
   const showcase_report = reportMatch ? reportMatch[1].trim().substring(0, 500) : ''
+
+  console.log(`Final parsed data for player ${playerId}:`, {
+    name,
+    height,
+    weight,
+    graduation_year,
+    positions,
+    bats,
+    throws
+  })
 
   return {
     name,

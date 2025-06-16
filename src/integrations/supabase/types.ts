@@ -56,7 +56,7 @@ export type Database = {
           bats: string | null
           created_at: string | null
           graduation_year: string | null
-          height: string | null
+          height: number | null
           id: number
           name: string
           player_id: number
@@ -66,13 +66,13 @@ export type Database = {
           showcase_report: string | null
           throws: string | null
           updated_at: string | null
-          weight: string | null
+          weight: number | null
         }
         Insert: {
           bats?: string | null
           created_at?: string | null
           graduation_year?: string | null
-          height?: string | null
+          height?: number | null
           id?: number
           name: string
           player_id: number
@@ -82,13 +82,13 @@ export type Database = {
           showcase_report?: string | null
           throws?: string | null
           updated_at?: string | null
-          weight?: string | null
+          weight?: number | null
         }
         Update: {
           bats?: string | null
           created_at?: string | null
           graduation_year?: string | null
-          height?: string | null
+          height?: number | null
           id?: number
           name?: string
           player_id?: number
@@ -98,7 +98,7 @@ export type Database = {
           showcase_report?: string | null
           throws?: string | null
           updated_at?: string | null
-          weight?: string | null
+          weight?: number | null
         }
         Relationships: []
       }
