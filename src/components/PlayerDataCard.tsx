@@ -3,17 +3,20 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, User, Ruler, Weight, GraduationCap, FileText, Clock } from 'lucide-react';
+import { ExternalLink, User, Ruler, Weight, GraduationCap, FileText, Clock, Target, Hand } from 'lucide-react';
 
 interface PlayerData {
   id: number;
+  player_id: number;
   name: string;
   height: string;
   weight: string;
-  gradYear: string;
-  profileUrl: string;
-  showcaseReport: string;
-  scrapedAt: string;
+  graduation_year: string;
+  positions: string;
+  handedness: string;
+  profile_url: string;
+  showcase_report: string;
+  scraped_at: string;
 }
 
 interface PlayerDataCardProps {
@@ -26,7 +29,7 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
   };
 
   const openProfile = () => {
-    window.open(player.profileUrl, '_blank');
+    window.open(player.profile_url, '_blank');
   };
 
   return (
@@ -37,9 +40,9 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
           <div>
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <User className="w-6 h-6 text-blue-600" />
-              {player.name}
+              {player.name || 'Unknown Player'}
             </h2>
-            <p className="text-sm text-gray-500">Player ID: {player.id}</p>
+            <p className="text-sm text-gray-500">Player ID: {player.player_id}</p>
           </div>
           <Button
             variant="outline"
@@ -53,48 +56,79 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
         </div>
 
         {/* Player Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-            <Ruler className="w-5 h-5 text-blue-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Height</p>
-              <p className="text-lg font-semibold text-gray-900">{player.height}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {player.height && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+              <Ruler className="w-5 h-5 text-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">Height</p>
+                <p className="text-lg font-semibold text-gray-900">{player.height}</p>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-            <Weight className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Weight</p>
-              <p className="text-lg font-semibold text-gray-900">{player.weight}</p>
+          {player.weight && (
+            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+              <Weight className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">Weight</p>
+                <p className="text-lg font-semibold text-gray-900">{player.weight}</p>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
-            <GraduationCap className="w-5 h-5 text-purple-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Graduation Year</p>
-              <p className="text-lg font-semibold text-gray-900">{player.gradYear}</p>
+          {player.graduation_year && (
+            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
+              <GraduationCap className="w-5 h-5 text-purple-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">Graduation Year</p>
+                <p className="text-lg font-semibold text-gray-900">{player.graduation_year}</p>
+              </div>
             </div>
-          </div>
+          )}
+
+          {player.handedness && (
+            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
+              <Hand className="w-5 h-5 text-orange-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">B/T</p>
+                <p className="text-lg font-semibold text-gray-900">{player.handedness}</p>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Positions */}
+        {player.positions && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-semibold text-gray-900">Positions</h3>
+            </div>
+            <div className="p-3 bg-indigo-50 rounded-lg border-l-4 border-indigo-200">
+              <p className="text-gray-700">{player.positions}</p>
+            </div>
+          </div>
+        )}
 
         {/* Showcase Report */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-orange-600" />
-            <h3 className="font-semibold text-gray-900">Latest Showcase Report</h3>
+        {player.showcase_report && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-orange-600" />
+              <h3 className="font-semibold text-gray-900">Latest Showcase Report</h3>
+            </div>
+            <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-200">
+              <p className="text-gray-700">{player.showcase_report}</p>
+            </div>
           </div>
-          <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-200">
-            <p className="text-gray-700">{player.showcaseReport}</p>
-          </div>
-        </div>
+        )}
 
         {/* Profile URL */}
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-700">Profile URL</p>
           <div className="p-2 bg-gray-50 rounded border font-mono text-sm text-gray-600 break-all">
-            {player.profileUrl}
+            {player.profile_url}
           </div>
         </div>
 
@@ -102,7 +136,7 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
         <div className="flex items-center gap-2 pt-2 border-t">
           <Clock className="w-4 h-4 text-gray-400" />
           <span className="text-sm text-gray-500">
-            Scraped on {formatDate(player.scrapedAt)}
+            Scraped on {formatDate(player.scraped_at)}
           </span>
         </div>
       </div>

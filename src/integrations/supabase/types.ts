@@ -51,6 +51,54 @@ export type Database = {
         }
         Relationships: []
       }
+      perfect_game_players: {
+        Row: {
+          created_at: string | null
+          graduation_year: string | null
+          handedness: string | null
+          height: string | null
+          id: number
+          name: string
+          player_id: number
+          positions: string | null
+          profile_url: string
+          scraped_at: string | null
+          showcase_report: string | null
+          updated_at: string | null
+          weight: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          graduation_year?: string | null
+          handedness?: string | null
+          height?: string | null
+          id?: number
+          name: string
+          player_id: number
+          positions?: string | null
+          profile_url: string
+          scraped_at?: string | null
+          showcase_report?: string | null
+          updated_at?: string | null
+          weight?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          graduation_year?: string | null
+          handedness?: string | null
+          height?: string | null
+          id?: number
+          name?: string
+          player_id?: number
+          positions?: string | null
+          profile_url?: string
+          scraped_at?: string | null
+          showcase_report?: string | null
+          updated_at?: string | null
+          weight?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

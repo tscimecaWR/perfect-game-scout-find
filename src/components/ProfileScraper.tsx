@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -7,16 +7,20 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Play, Pause, Download, RotateCcw } from 'lucide-react';
 import { PlayerDataCard } from './PlayerDataCard';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PlayerData {
   id: number;
+  player_id: number;
   name: string;
   height: string;
   weight: string;
-  gradYear: string;
-  profileUrl: string;
-  showcaseReport: string;
-  scrapedAt: string;
+  graduation_year: string;
+  positions: string;
+  handedness: string;
+  profile_url: string;
+  showcase_report: string;
+  scraped_at: string;
 }
 
 export const ProfileScraper = () => {
@@ -27,57 +31,63 @@ export const ProfileScraper = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const mockScrapeProfile = async (id: number): Promise<PlayerData> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-    
-    // Mock data generation (in real implementation, this would scrape the actual page)
-    const names = ['John Smith', 'Michael Johnson', 'David Wilson', 'James Brown', 'Robert Davis'];
-    const heights = ['5\'10"', '6\'0"', '5\'11"', '6\'2"', '5\'9"'];
-    const weights = ['170 lbs', '180 lbs', '165 lbs', '185 lbs', '160 lbs'];
-    const gradYears = ['2024', '2025', '2026', '2023', '2027'];
-    const showcaseReports = [
-      'Strong defensive player with good speed',
-      'Excellent batting average, needs work on fielding',
-      'Promising pitcher with good control',
-      'Versatile infielder with leadership qualities',
-      'Fast runner with good base stealing ability'
-    ];
+  // Load existing data from database on component mount
+  useEffect(() => {
+    loadExistingData();
+  }, []);
 
-    return {
-      id,
-      name: names[Math.floor(Math.random() * names.length)],
-      height: heights[Math.floor(Math.random() * heights.length)],
-      weight: weights[Math.floor(Math.random() * weights.length)],
-      gradYear: gradYears[Math.floor(Math.random() * gradYears.length)],
-      profileUrl: `https://www.perfectgame.org/Players/Playerprofile.aspx?ID=${id}`,
-      showcaseReport: showcaseReports[Math.floor(Math.random() * showcaseReports.length)],
-      scrapedAt: new Date().toISOString()
-    };
+  const loadExistingData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('perfect_game_players')
+        .select('*')
+        .order('scraped_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setPlayerData(data || []);
+    } catch (error) {
+      console.error('Error loading existing data:', error);
+    }
   };
 
   const scrapeCurrentProfile = async () => {
     setIsLoading(true);
     try {
-      const data = await mockScrapeProfile(currentId);
-      setCurrentPlayer(data);
-      setPlayerData(prev => {
-        const existing = prev.find(p => p.id === data.id);
-        if (existing) {
-          return prev.map(p => p.id === data.id ? data : p);
-        }
-        return [...prev, data];
+      // Call the edge function to scrape the profile
+      const { data, error } = await supabase.functions.invoke('scrape-player', {
+        body: { playerId: currentId }
       });
-      
-      toast({
-        title: "Profile Scraped",
-        description: `Successfully scraped data for ${data.name}`,
-        duration: 2000,
-      });
+
+      if (error) throw error;
+
+      if (data.success && data.player) {
+        const player = data.player;
+        setCurrentPlayer(player);
+        
+        // Update local state
+        setPlayerData(prev => {
+          const existing = prev.find(p => p.player_id === player.player_id);
+          if (existing) {
+            return prev.map(p => p.player_id === player.player_id ? player : p);
+          }
+          return [player, ...prev];
+        });
+        
+        toast({
+          title: "Profile Scraped",
+          description: `Successfully scraped data for ${player.name}`,
+          duration: 2000,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to scrape profile');
+      }
     } catch (error) {
+      console.error('Scraping error:', error);
       toast({
         title: "Scraping Failed",
-        description: "Could not scrape profile data",
+        description: error.message || "Could not scrape profile data",
         variant: "destructive",
         duration: 3000,
       });
@@ -104,9 +114,9 @@ export const ProfileScraper = () => {
 
   const exportData = () => {
     const csvContent = [
-      'ID,Name,Height,Weight,Grad Year,Profile URL,Showcase Report,Scraped At',
+      'ID,Player ID,Name,Height,Weight,Grad Year,Positions,Handedness,Profile URL,Showcase Report,Scraped At',
       ...playerData.map(player => 
-        `${player.id},"${player.name}","${player.height}","${player.weight}","${player.gradYear}","${player.profileUrl}","${player.showcaseReport}","${player.scrapedAt}"`
+        `${player.id},"${player.player_id}","${player.name}","${player.height}","${player.weight}","${player.graduation_year}","${player.positions}","${player.handedness}","${player.profile_url}","${player.showcase_report}","${player.scraped_at}"`
       )
     ].join('\n');
 
@@ -125,15 +135,34 @@ export const ProfileScraper = () => {
     });
   };
 
-  const resetData = () => {
-    setPlayerData([]);
-    setCurrentPlayer(null);
-    setCurrentId(493019);
-    toast({
-      title: "Data Reset",
-      description: "All scraped data has been cleared",
-      duration: 2000,
-    });
+  const resetData = async () => {
+    try {
+      // Clear database
+      const { error } = await supabase
+        .from('perfect_game_players')
+        .delete()
+        .neq('id', 0); // Delete all rows
+
+      if (error) throw error;
+
+      setPlayerData([]);
+      setCurrentPlayer(null);
+      setCurrentId(493019);
+      
+      toast({
+        title: "Data Reset",
+        description: "All scraped data has been cleared from database",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('Error resetting data:', error);
+      toast({
+        title: "Reset Failed",
+        description: "Could not clear database",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   React.useEffect(() => {
@@ -141,7 +170,7 @@ export const ProfileScraper = () => {
     if (isAutoStepping && !isLoading) {
       interval = setInterval(() => {
         stepToNext();
-      }, 3000);
+      }, 5000); // Increased to 5 seconds to be respectful to the server
     }
     return () => clearInterval(interval);
   }, [isAutoStepping, isLoading, currentId]);
@@ -152,7 +181,7 @@ export const ProfileScraper = () => {
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-gray-900">Perfect Game Profile Scraper</h1>
-          <p className="text-lg text-gray-600">Extract player data from Perfect Game profiles</p>
+          <p className="text-lg text-gray-600">Extract real player data from Perfect Game profiles</p>
         </div>
 
         {/* Controls */}
@@ -255,9 +284,12 @@ export const ProfileScraper = () => {
                   onClick={() => setCurrentPlayer(player)}
                 >
                   <div className="font-medium text-sm">{player.name}</div>
-                  <div className="text-xs text-gray-600">ID: {player.id}</div>
+                  <div className="text-xs text-gray-600">ID: {player.player_id}</div>
                   <div className="text-xs text-gray-600">{player.height} • {player.weight}</div>
-                  <div className="text-xs text-gray-600">Class of {player.gradYear}</div>
+                  <div className="text-xs text-gray-600">Class of {player.graduation_year}</div>
+                  {player.positions && (
+                    <div className="text-xs text-gray-600">{player.positions}</div>
+                  )}
                 </div>
               ))}
             </div>
