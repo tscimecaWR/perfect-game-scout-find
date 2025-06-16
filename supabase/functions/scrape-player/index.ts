@@ -100,13 +100,31 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   const nameMatch = html.match(/<span[^>]*id="[^"]*lblPlayerName[^"]*"[^>]*>([^<]+)<\/span>/i)
   const name = nameMatch ? nameMatch[1].trim() : ''
 
-  // Extract height
-  const heightMatch = html.match(/Height[:\s]*([0-9]+'[0-9]+")/i)
-  const height = heightMatch ? heightMatch[1].trim() : ''
+  // Extract height from specific element ID and convert to inches
+  const heightMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblHt[^"]*"[^>]*>([^<]+)<\/span>/i)
+  let height = null
+  if (heightMatch) {
+    const heightText = heightMatch[1].trim()
+    // Parse feet and inches (e.g., "6' 2\"" or "6'2\"")
+    const feetInchesMatch = heightText.match(/(\d+)'?\s*(\d+)"?/)
+    if (feetInchesMatch) {
+      const feet = parseInt(feetInchesMatch[1])
+      const inches = parseInt(feetInchesMatch[2])
+      height = (feet * 12) + inches
+    }
+  }
 
-  // Extract weight
-  const weightMatch = html.match(/Weight[:\s]*([0-9]+\s*lbs?)/i)
-  const weight = weightMatch ? weightMatch[1].trim() : ''
+  // Extract weight from specific element ID and convert to integer
+  const weightMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblWt[^"]*"[^>]*>([^<]+)<\/span>/i)
+  let weight = null
+  if (weightMatch) {
+    const weightText = weightMatch[1].trim()
+    // Extract just the number from weight (e.g., "185 lbs" -> 185)
+    const weightNumberMatch = weightText.match(/(\d+)/)
+    if (weightNumberMatch) {
+      weight = parseInt(weightNumberMatch[1])
+    }
+  }
 
   // Extract graduation year
   const gradYearMatch = html.match(/Class of[:\s]*([0-9]{4})/i) || html.match(/Grad[:\s]*([0-9]{4})/i)
