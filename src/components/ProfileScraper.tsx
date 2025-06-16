@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Play, Pause, Download, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Pause, Download, RotateCcw, Zap } from 'lucide-react';
 import { PlayerDataCard } from './PlayerDataCard';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,10 +26,13 @@ interface PlayerData {
 
 export const ProfileScraper = () => {
   const [currentId, setCurrentId] = useState(493019);
+  const [startId, setStartId] = useState(493019);
+  const [endId, setEndId] = useState(493030);
   const [playerData, setPlayerData] = useState<PlayerData[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerData | null>(null);
   const [isAutoStepping, setIsAutoStepping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isBatchScraping, setIsBatchScraping] = useState(false);
   const { toast } = useToast();
 
   // Load existing data from database on component mount
@@ -99,6 +102,67 @@ export const ProfileScraper = () => {
       return false;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const scrapeRange = async () => {
+    if (startId >= endId) {
+      toast({
+        title: "Invalid Range",
+        description: "Start ID must be less than End ID",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setIsBatchScraping(true);
+    try {
+      console.log(`Starting batch scrape from ${startId} to ${endId}`);
+      
+      toast({
+        title: "Batch Scraping Started",
+        description: `Scraping ${endId - startId + 1} profiles...`,
+        duration: 3000,
+      });
+
+      // Call the edge function to scrape the range
+      const { data, error } = await supabase.functions.invoke('scrape-player', {
+        body: { startId, endId }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        const results = data.results;
+        
+        toast({
+          title: "Batch Scraping Complete",
+          description: `Successfully scraped ${results.successful} of ${results.total} profiles`,
+          duration: 5000,
+        });
+
+        // Reload data from database to get the new records
+        await loadExistingData();
+        
+        console.log('Batch scraping results:', results);
+        
+        if (results.errors.length > 0) {
+          console.log('Scraping errors:', results.errors);
+        }
+      } else {
+        throw new Error(data.error || 'Failed to scrape range');
+      }
+    } catch (error) {
+      console.error('Batch scraping error:', error);
+      toast({
+        title: "Batch Scraping Failed",
+        description: error.message || "Could not scrape profile range",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setIsBatchScraping(false);
     }
   };
 
@@ -200,83 +264,126 @@ export const ProfileScraper = () => {
 
         {/* Controls */}
         <Card className="p-6">
-          <div className="flex flex-wrap items-center gap-4 justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Current ID:</label>
-                <Input
-                  type="number"
-                  value={currentId}
-                  onChange={(e) => setCurrentId(parseInt(e.target.value) || 493019)}
-                  className="w-24"
-                  min="493019"
-                />
+          <div className="space-y-4">
+            {/* Single Player Controls */}
+            <div className="flex flex-wrap items-center gap-4 justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Current ID:</label>
+                  <Input
+                    type="number"
+                    value={currentId}
+                    onChange={(e) => setCurrentId(parseInt(e.target.value) || 493019)}
+                    className="w-24"
+                    min="493019"
+                  />
+                </div>
+                <Badge variant="outline" className="text-sm">
+                  {playerData.length} profiles scraped
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-sm">
-                {playerData.length} profiles scraped
-              </Badge>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={stepToPrevious}
+                  disabled={isLoading || currentId <= 493019}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                
+                <Button
+                  onClick={scrapeCurrentProfile}
+                  disabled={isLoading || isBatchScraping}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isLoading ? 'Scraping...' : 'Scrape Current'}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={stepToNext}
+                  disabled={isLoading || isBatchScraping}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+
+                <Button
+                  variant={isAutoStepping ? "destructive" : "default"}
+                  onClick={toggleAutoStep}
+                  disabled={isLoading || isBatchScraping}
+                  className="ml-2"
+                >
+                  {isAutoStepping ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  {isAutoStepping ? 'Stop Auto' : 'Auto Step'}
+                </Button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={stepToPrevious}
-                disabled={isLoading || currentId <= 493019}
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </Button>
-              
-              <Button
-                onClick={scrapeCurrentProfile}
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isLoading ? 'Scraping...' : 'Scrape Current'}
-              </Button>
+            {/* Batch Scraping Controls */}
+            <div className="border-t pt-4">
+              <div className="flex flex-wrap items-center gap-4 justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">Batch Range:</label>
+                    <Input
+                      type="number"
+                      value={startId}
+                      onChange={(e) => setStartId(parseInt(e.target.value) || 493019)}
+                      className="w-24"
+                      min="493019"
+                      placeholder="Start ID"
+                    />
+                    <span className="text-sm text-gray-500">to</span>
+                    <Input
+                      type="number"
+                      value={endId}
+                      onChange={(e) => setEndId(parseInt(e.target.value) || 493030)}
+                      className="w-24"
+                      min="493019"
+                      placeholder="End ID"
+                    />
+                  </div>
+                  <Badge variant="secondary" className="text-sm">
+                    {endId >= startId ? endId - startId + 1 : 0} players
+                  </Badge>
+                </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={stepToNext}
-                disabled={isLoading}
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={scrapeRange}
+                    disabled={isLoading || isBatchScraping || startId >= endId}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Zap className="w-4 h-4" />
+                    {isBatchScraping ? 'Batch Scraping...' : 'Scrape Range'}
+                  </Button>
 
-              <Button
-                variant={isAutoStepping ? "destructive" : "default"}
-                onClick={toggleAutoStep}
-                disabled={isLoading}
-                className="ml-2"
-              >
-                {isAutoStepping ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                {isAutoStepping ? 'Stop Auto' : 'Auto Step'}
-              </Button>
-            </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportData}
+                    disabled={playerData.length === 0}
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </Button>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportData}
-                disabled={playerData.length === 0}
-              >
-                <Download className="w-4 h-4" />
-                Export CSV
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetData}
-                disabled={playerData.length === 0}
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reset
-              </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetData}
+                    disabled={playerData.length === 0}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Reset
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </Card>

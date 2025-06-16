@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -13,24 +12,44 @@ serve(async (req) => {
   }
 
   try {
-    const { playerId } = await req.json()
+    const body = await req.json()
+    const { playerId, startId, endId } = body
     
-    if (!playerId) {
-      return new Response(
-        JSON.stringify({ error: 'Player ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Handle single player scraping
+    if (playerId && !startId && !endId) {
+      return await scrapeSinglePlayer(playerId)
     }
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    const profileUrl = `https://www.perfectgame.org/Players/Playerprofile.aspx?ID=${playerId}`
     
-    console.log(`Scraping player profile: ${profileUrl}`)
+    // Handle range scraping
+    if (startId && endId) {
+      return await scrapePlayerRange(startId, endId)
+    }
     
+    return new Response(
+      JSON.stringify({ error: 'Either playerId or startId/endId range is required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error) {
+    console.error('Request error:', error)
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
+
+async function scrapeSinglePlayer(playerId: number) {
+  // Initialize Supabase client
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+  const profileUrl = `https://www.perfectgame.org/Players/Playerprofile.aspx?ID=${playerId}`
+  
+  console.log(`Scraping player profile: ${profileUrl}`)
+  
+  try {
     // Fetch the profile page
     const response = await fetch(profileUrl, {
       headers: {
@@ -105,7 +124,112 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
-})
+}
+
+async function scrapePlayerRange(startId: number, endId: number) {
+  // Initialize Supabase client
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+  const results = {
+    total: endId - startId + 1,
+    successful: 0,
+    failed: 0,
+    errors: [] as string[]
+  }
+
+  console.log(`Starting batch scrape from ID ${startId} to ${endId} (${results.total} players)`)
+
+  for (let playerId = startId; playerId <= endId; playerId++) {
+    try {
+      const profileUrl = `https://www.perfectgame.org/Players/Playerprofile.aspx?ID=${playerId}`
+      
+      console.log(`Scraping player ${playerId} (${playerId - startId + 1}/${results.total})`)
+      
+      // Fetch the profile page
+      const response = await fetch(profileUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      })
+
+      if (!response.ok) {
+        results.failed++
+        results.errors.push(`ID ${playerId}: Failed to fetch profile (${response.status})`)
+        continue
+      }
+
+      const html = await response.text()
+      
+      // Parse the HTML to extract player data
+      const playerData = parsePlayerData(html, playerId, profileUrl)
+      
+      // Check if we got any meaningful data
+      const hasAnyData = playerData.name || 
+                        playerData.height || 
+                        playerData.weight || 
+                        playerData.graduation_year || 
+                        playerData.positions || 
+                        playerData.bats || 
+                        playerData.throws || 
+                        playerData.showcase_report
+      
+      if (!hasAnyData) {
+        results.failed++
+        results.errors.push(`ID ${playerId}: No data found or profile is private`)
+        continue
+      }
+
+      // Save to database
+      const playerName = playerData.name || `Player ${playerId}`
+      
+      const { error } = await supabase
+        .from('perfect_game_players')
+        .upsert({
+          player_id: playerId,
+          name: playerName,
+          height: playerData.height,
+          weight: playerData.weight,
+          graduation_year: playerData.graduation_year,
+          positions: playerData.positions,
+          bats: playerData.bats,
+          throws: playerData.throws,
+          profile_url: profileUrl,
+          showcase_report: playerData.showcase_report,
+          scraped_at: new Date().toISOString()
+        })
+
+      if (error) {
+        results.failed++
+        results.errors.push(`ID ${playerId}: Database error - ${error.message}`)
+        console.error(`Database error for player ${playerId}:`, error)
+      } else {
+        results.successful++
+        console.log(`Successfully scraped player ${playerId}: ${playerName}`)
+      }
+
+      // Add a small delay to be respectful to the server
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+    } catch (error) {
+      results.failed++
+      results.errors.push(`ID ${playerId}: ${error.message}`)
+      console.error(`Error scraping player ${playerId}:`, error)
+    }
+  }
+
+  console.log(`Batch scrape completed. Successful: ${results.successful}, Failed: ${results.failed}`)
+
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      message: `Batch scrape completed`,
+      results 
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
 
 function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   // Extract player name
