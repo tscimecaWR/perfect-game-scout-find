@@ -53,12 +53,14 @@ export const ProfileScraper = () => {
     }
   };
 
-  const scrapeCurrentProfile = async () => {
+  const scrapeProfile = async (playerId: number) => {
     setIsLoading(true);
     try {
+      console.log(`Attempting to scrape player ID: ${playerId}`);
+      
       // Call the edge function to scrape the profile
       const { data, error } = await supabase.functions.invoke('scrape-player', {
-        body: { playerId: currentId }
+        body: { playerId }
       });
 
       if (error) throw error;
@@ -81,6 +83,8 @@ export const ProfileScraper = () => {
           description: `Successfully scraped data for ${player.name}`,
           duration: 2000,
         });
+        
+        return true;
       } else {
         throw new Error(data.error || 'Failed to scrape profile');
       }
@@ -92,21 +96,26 @@ export const ProfileScraper = () => {
         variant: "destructive",
         duration: 3000,
       });
+      return false;
     } finally {
       setIsLoading(false);
     }
   };
 
+  const scrapeCurrentProfile = async () => {
+    return await scrapeProfile(currentId);
+  };
+
   const stepToNext = async () => {
     const nextId = currentId + 1;
     setCurrentId(nextId);
-    await scrapeCurrentProfile();
+    return await scrapeProfile(nextId);
   };
 
   const stepToPrevious = async () => {
     const prevId = Math.max(493019, currentId - 1);
     setCurrentId(prevId);
-    await scrapeCurrentProfile();
+    return await scrapeProfile(prevId);
   };
 
   const toggleAutoStep = () => {
@@ -169,8 +178,12 @@ export const ProfileScraper = () => {
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isAutoStepping && !isLoading) {
-      interval = setInterval(() => {
-        stepToNext();
+      interval = setInterval(async () => {
+        const success = await stepToNext();
+        // If scraping fails, stop auto-stepping
+        if (!success) {
+          setIsAutoStepping(false);
+        }
       }, 5000); // Increased to 5 seconds to be respectful to the server
     }
     return () => clearInterval(interval);
