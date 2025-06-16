@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { ChevronLeft, ChevronRight, Play, Pause, Download, RotateCcw, Zap } from 'lucide-react';
 import { PlayerDataCard } from './PlayerDataCard';
 import { useToast } from '@/hooks/use-toast';
@@ -24,21 +25,53 @@ interface PlayerData {
   scraped_at: string;
 }
 
+interface BatchProgress {
+  chunkIndex: number;
+  totalChunks: number;
+  successful: number;
+  failed: number;
+  processed: number;
+  total: number;
+}
+
 export const ProfileScraper = () => {
   const [currentId, setCurrentId] = useState(493019);
   const [startId, setStartId] = useState(493019);
   const [endId, setEndId] = useState(493030);
+  const [chunkSize, setChunkSize] = useState(50);
   const [playerData, setPlayerData] = useState<PlayerData[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerData | null>(null);
   const [isAutoStepping, setIsAutoStepping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isBatchScraping, setIsBatchScraping] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const { toast } = useToast();
 
   // Load existing data from database on component mount
   useEffect(() => {
     loadExistingData();
   }, []);
+
+  // Subscribe to real-time progress updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('scraping-progress')
+      .on('broadcast', { event: 'chunk-completed' }, (payload) => {
+        console.log('Progress update received:', payload.payload);
+        setBatchProgress(payload.payload);
+        
+        toast({
+          title: "Progress Update",
+          description: `Chunk ${payload.payload.chunkIndex}/${payload.payload.totalChunks} completed. ${payload.payload.successful} successful, ${payload.payload.failed} failed.`,
+          duration: 2000,
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
 
   const loadExistingData = async () => {
     try {
@@ -117,18 +150,20 @@ export const ProfileScraper = () => {
     }
 
     setIsBatchScraping(true);
+    setBatchProgress(null);
+    
     try {
-      console.log(`Starting batch scrape from ${startId} to ${endId}`);
+      console.log(`Starting chunked batch scrape from ${startId} to ${endId} with chunk size ${chunkSize}`);
       
       toast({
         title: "Batch Scraping Started",
-        description: `Scraping ${endId - startId + 1} profiles...`,
+        description: `Scraping ${endId - startId + 1} profiles in chunks of ${chunkSize}...`,
         duration: 3000,
       });
 
-      // Call the edge function to scrape the range
+      // Call the edge function to scrape the range with chunking
       const { data, error } = await supabase.functions.invoke('scrape-player', {
-        body: { startId, endId }
+        body: { startId, endId, chunkSize }
       });
 
       if (error) throw error;
@@ -138,7 +173,7 @@ export const ProfileScraper = () => {
         
         toast({
           title: "Batch Scraping Complete",
-          description: `Successfully scraped ${results.successful} of ${results.total} profiles`,
+          description: `Successfully scraped ${results.successful} of ${results.total} profiles in ${results.totalChunks} chunks`,
           duration: 5000,
         });
 
@@ -163,6 +198,7 @@ export const ProfileScraper = () => {
       });
     } finally {
       setIsBatchScraping(false);
+      setBatchProgress(null);
     }
   };
 
@@ -248,7 +284,7 @@ export const ProfileScraper = () => {
         if (!success) {
           setIsAutoStepping(false);
         }
-      }, 5000); // Increased to 5 seconds to be respectful to the server
+      }, 3000); // Reduced to 3 seconds for faster auto-stepping
     }
     return () => clearInterval(interval);
   }, [isAutoStepping, isLoading, currentId]);
@@ -348,6 +384,17 @@ export const ProfileScraper = () => {
                       placeholder="End ID"
                     />
                   </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">Chunk Size:</label>
+                    <Input
+                      type="number"
+                      value={chunkSize}
+                      onChange={(e) => setChunkSize(parseInt(e.target.value) || 50)}
+                      className="w-20"
+                      min="10"
+                      max="100"
+                    />
+                  </div>
                   <Badge variant="secondary" className="text-sm">
                     {endId >= startId ? endId - startId + 1 : 0} players
                   </Badge>
@@ -385,6 +432,32 @@ export const ProfileScraper = () => {
                 </div>
               </div>
             </div>
+
+            {/* Progress Bar for Batch Scraping */}
+            {(isBatchScraping || batchProgress) && (
+              <div className="border-t pt-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>
+                      {batchProgress 
+                        ? `Chunk ${batchProgress.chunkIndex}/${batchProgress.totalChunks} - ${batchProgress.processed}/${batchProgress.total} players processed`
+                        : 'Starting batch scraping...'
+                      }
+                    </span>
+                    <span>
+                      {batchProgress 
+                        ? `${batchProgress.successful} successful, ${batchProgress.failed} failed`
+                        : ''
+                      }
+                    </span>
+                  </div>
+                  <Progress 
+                    value={batchProgress ? (batchProgress.processed / batchProgress.total) * 100 : 0} 
+                    className="w-full h-2"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
