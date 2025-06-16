@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -170,30 +171,72 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     }
   }
 
-  // Extract showcase report from the specific element ID and get the full paragraph
-  const reportMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblLatestReport[^"]*"[^>]*>([^<]+)<\/span>/i)
+  // Extract showcase report with improved logic to capture full content
   let showcase_report = ''
   
-  if (reportMatch) {
-    // Get the full text content from the element
-    let reportText = reportMatch[1].trim()
+  // First try to find the main showcase report span
+  const reportSpanMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblLatestReport[^"]*"[^>]*>(.*?)<\/span>/is)
+  
+  if (reportSpanMatch) {
+    let reportContent = reportSpanMatch[1].trim()
+    console.log(`Found showcase report span content: "${reportContent.substring(0, 100)}..."`)
     
-    // Also try to find any additional text in associated div with class "text-start p-1"
-    const divMatch = html.match(/<div[^>]*class="[^"]*text-start[^"]*p-1[^"]*"[^>]*>([^<]+)<\/div>/i)
-    if (divMatch) {
-      const divText = divMatch[1].trim()
-      // If the div text is longer and different, use it instead
-      if (divText.length > reportText.length && divText !== reportText) {
-        reportText = divText
-        console.log(`Found longer showcase report in div: "${divText.substring(0, 100)}..."`)
-      }
+    // Clean up HTML entities and tags
+    reportContent = reportContent
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/<[^>]*>/g, '') // Remove any remaining HTML tags
+      .trim()
+    
+    showcase_report = reportContent
+  }
+  
+  // Also try to find additional content in div with class "text-start p-1"
+  const divMatch = html.match(/<div[^>]*class="[^"]*text-start[^"]*p-1[^"]*"[^>]*>(.*?)<\/div>/is)
+  if (divMatch) {
+    let divContent = divMatch[1].trim()
+    console.log(`Found div content: "${divContent.substring(0, 100)}..."`)
+    
+    // Clean up HTML entities and tags
+    divContent = divContent
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/<[^>]*>/g, '') // Remove any remaining HTML tags
+      .trim()
+    
+    // If the div content is longer and different, use it instead or append it
+    if (divContent.length > showcase_report.length && divContent !== showcase_report) {
+      showcase_report = divContent
+      console.log(`Using longer div content for showcase report`)
+    } else if (divContent && !showcase_report.includes(divContent)) {
+      // Append if it's additional content
+      showcase_report = showcase_report ? `${showcase_report} ${divContent}` : divContent
+      console.log(`Appended div content to showcase report`)
     }
-    
-    // Store the complete paragraph (increase limit to accommodate full reports)
-    showcase_report = reportText.substring(0, 1000) // Increased to 1000 characters
-    console.log(`Found showcase report: "${showcase_report.substring(0, 100)}..."`)
+  }
+  
+  // Try alternative patterns for showcase report if still empty
+  if (!showcase_report) {
+    // Look for any div or p tag that might contain showcase report content
+    const altReportMatch = html.match(/<(?:div|p)[^>]*>\s*(?:Latest\s+)?(?:Showcase\s+)?Report[:\s]*([^<]+)</i)
+    if (altReportMatch) {
+      showcase_report = altReportMatch[1].trim()
+      console.log(`Found showcase report using alternative pattern: "${showcase_report.substring(0, 100)}..."`)
+    }
+  }
+  
+  // Limit the final showcase report to 2000 characters to handle very long reports
+  if (showcase_report) {
+    showcase_report = showcase_report.substring(0, 2000)
+    console.log(`Final showcase report (${showcase_report.length} chars): "${showcase_report.substring(0, 100)}..."`)
   } else {
-    console.log('Showcase report element not found in HTML')
+    console.log('No showcase report content found')
   }
 
   console.log(`Final parsed data for player ${playerId}:`, {
