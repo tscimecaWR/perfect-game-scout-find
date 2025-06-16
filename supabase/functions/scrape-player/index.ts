@@ -106,15 +106,26 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   if (heightMatch) {
     const heightText = heightMatch[1].trim()
     console.log(`Found height text: "${heightText}"`)
-    // Parse feet and inches (e.g., "6' 2\"" or "6'2\"")
-    const feetInchesMatch = heightText.match(/(\d+)'?\s*(\d+)"?/)
-    if (feetInchesMatch) {
-      const feet = parseInt(feetInchesMatch[1])
-      const inches = parseInt(feetInchesMatch[2])
+    
+    // Parse different height formats
+    // Handle format like "5-3" (feet-inches with hyphen)
+    const hyphenMatch = heightText.match(/(\d+)-(\d+)/)
+    if (hyphenMatch) {
+      const feet = parseInt(hyphenMatch[1])
+      const inches = parseInt(hyphenMatch[2])
       height = (feet * 12) + inches
-      console.log(`Parsed height: ${feet}' ${inches}" = ${height} inches`)
+      console.log(`Parsed height from hyphen format: ${feet}-${inches} = ${height} inches`)
     } else {
-      console.log(`Could not parse height from: "${heightText}"`)
+      // Handle format like "6' 2\"" or "6'2\"" (feet and inches with quotes)
+      const feetInchesMatch = heightText.match(/(\d+)'?\s*(\d+)"?/)
+      if (feetInchesMatch) {
+        const feet = parseInt(feetInchesMatch[1])
+        const inches = parseInt(feetInchesMatch[2])
+        height = (feet * 12) + inches
+        console.log(`Parsed height from quote format: ${feet}' ${inches}" = ${height} inches`)
+      } else {
+        console.log(`Could not parse height from: "${heightText}"`)
+      }
     }
   } else {
     console.log('Height element not found in HTML')
