@@ -111,8 +111,8 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
   const gradYearMatch = html.match(/Class of[:\s]*([0-9]{4})/i) || html.match(/Grad[:\s]*([0-9]{4})/i)
   const graduation_year = gradYearMatch ? gradYearMatch[1].trim() : ''
 
-  // Extract positions
-  const positionMatch = html.match(/Position[s]?[:\s]*([^<\n]+)/i)
+  // Extract positions using the specific element ID
+  const positionMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblPos[^"]*"[^>]*>([^<]+)<\/span>/i)
   const positions = positionMatch ? positionMatch[1].trim() : ''
 
   // Extract handedness (Bats/Throws)
