@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -171,12 +170,27 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     }
   }
 
-  // Extract showcase report from the specific element ID
+  // Extract showcase report from the specific element ID and get the full paragraph
   const reportMatch = html.match(/<span[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_lblLatestReport[^"]*"[^>]*>([^<]+)<\/span>/i)
   let showcase_report = ''
   
   if (reportMatch) {
-    showcase_report = reportMatch[1].trim().substring(0, 500) // Limit to 500 characters
+    // Get the full text content from the element
+    let reportText = reportMatch[1].trim()
+    
+    // Also try to find any additional text in associated div with class "text-start p-1"
+    const divMatch = html.match(/<div[^>]*class="[^"]*text-start[^"]*p-1[^"]*"[^>]*>([^<]+)<\/div>/i)
+    if (divMatch) {
+      const divText = divMatch[1].trim()
+      // If the div text is longer and different, use it instead
+      if (divText.length > reportText.length && divText !== reportText) {
+        reportText = divText
+        console.log(`Found longer showcase report in div: "${divText.substring(0, 100)}..."`)
+      }
+    }
+    
+    // Store the complete paragraph (increase limit to accommodate full reports)
+    showcase_report = reportText.substring(0, 1000) // Increased to 1000 characters
     console.log(`Found showcase report: "${showcase_report.substring(0, 100)}..."`)
   } else {
     console.log('Showcase report element not found in HTML')
