@@ -35,6 +35,9 @@ export const ScrapedDataSummary: React.FC<ScrapedDataSummaryProps> = ({
                 {player.city && player.state ? `${player.city}, ${player.state}` : player.city || player.state}
               </div>
             )}
+            {player.team_last_played && (
+              <div className="text-xs text-gray-600">Team: {player.team_last_played}</div>
+            )}
             {player.positions && (
               <div className="text-xs text-gray-600">{player.positions}</div>
             )}

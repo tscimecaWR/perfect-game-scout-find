@@ -66,6 +66,7 @@ export type Database = {
           scraped_at: string | null
           showcase_report: string | null
           state: string | null
+          team_last_played: string | null
           throws: string | null
           updated_at: string | null
           weight: number | null
@@ -84,6 +85,7 @@ export type Database = {
           scraped_at?: string | null
           showcase_report?: string | null
           state?: string | null
+          team_last_played?: string | null
           throws?: string | null
           updated_at?: string | null
           weight?: number | null
@@ -102,6 +104,7 @@ export type Database = {
           scraped_at?: string | null
           showcase_report?: string | null
           state?: string | null
+          team_last_played?: string | null
           throws?: string | null
           updated_at?: string | null
           weight?: number | null

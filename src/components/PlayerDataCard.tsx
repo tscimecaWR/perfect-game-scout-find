@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, User, Ruler, Weight, GraduationCap, FileText, Clock, Target, Hand, MapPin } from 'lucide-react';
+import { ExternalLink, User, Ruler, Weight, GraduationCap, FileText, Clock, Target, Hand, MapPin, Users } from 'lucide-react';
 
 interface PlayerData {
   id: number;
@@ -17,6 +17,7 @@ interface PlayerData {
   throws: string;
   city: string | null;
   state: string | null;
+  team_last_played: string | null;
   profile_url: string;
   showcase_report: string;
   scraped_at: string;
@@ -130,6 +131,19 @@ export const PlayerDataCard: React.FC<PlayerDataCardProps> = ({ player }) => {
             </div>
             <div className="p-3 bg-red-50 rounded-lg border-l-4 border-red-200">
               <p className="text-gray-700">{formatLocation()}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Team Last Played */}
+        {player.team_last_played && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-teal-600" />
+              <h3 className="font-semibold text-gray-900">Team Last Played</h3>
+            </div>
+            <div className="p-3 bg-teal-50 rounded-lg border-l-4 border-teal-200">
+              <p className="text-gray-700">{player.team_last_played}</p>
             </div>
           </div>
         )}

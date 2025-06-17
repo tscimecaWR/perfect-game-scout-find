@@ -77,7 +77,8 @@ async function scrapeSinglePlayer(playerId: number) {
                       playerData.throws || 
                       playerData.showcase_report ||
                       playerData.city ||
-                      playerData.state
+                      playerData.state ||
+                      playerData.team_last_played
     
     if (!hasAnyData) {
       return new Response(
@@ -102,6 +103,7 @@ async function scrapeSinglePlayer(playerId: number) {
         throws: playerData.throws,
         city: playerData.city,
         state: playerData.state,
+        team_last_played: playerData.team_last_played,
         profile_url: profileUrl,
         showcase_report: playerData.showcase_report,
         scraped_at: new Date().toISOString()
@@ -185,7 +187,8 @@ async function scrapeSingleChunk(startId: number, endId: number, chunkIndex: num
                         playerData.throws || 
                         playerData.showcase_report ||
                         playerData.city ||
-                        playerData.state
+                        playerData.state ||
+                        playerData.team_last_played
       
       if (!hasAnyData) {
         chunkResults.failed++
@@ -209,6 +212,7 @@ async function scrapeSingleChunk(startId: number, endId: number, chunkIndex: num
           throws: playerData.throws,
           city: playerData.city,
           state: playerData.state,
+          team_last_played: playerData.team_last_played,
           profile_url: profileUrl,
           showcase_report: playerData.showcase_report,
           scraped_at: new Date().toISOString()
@@ -345,6 +349,17 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     console.log('Hometown element not found in HTML')
   }
 
+  // Extract team last played from the specific element ID
+  const teamMatch = html.match(/<a[^>]*id="[^"]*ContentTopLevel_ContentPlaceHolder1_hlTournamentTeam[^"]*"[^>]*>([^<]+)<\/a>/i)
+  let team_last_played = ''
+  
+  if (teamMatch) {
+    team_last_played = teamMatch[1].trim()
+    console.log(`Found team last played: "${team_last_played}"`)
+  } else {
+    console.log('Team last played element not found in HTML')
+  }
+
   // Extract showcase report with improved logic to capture full content
   let showcase_report = ''
   
@@ -422,7 +437,8 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     bats,
     throws,
     city,
-    state
+    state,
+    team_last_played
   })
 
   return {
@@ -435,6 +451,7 @@ function parsePlayerData(html: string, playerId: number, profileUrl: string) {
     throws,
     city,
     state,
+    team_last_played,
     showcase_report
   }
 }

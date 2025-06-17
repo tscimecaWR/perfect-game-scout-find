@@ -57,9 +57,9 @@ export const ProfileScraper = () => {
 
   const exportData = () => {
     const csvContent = [
-      'ID,Player ID,Name,Height,Weight,Grad Year,Positions,Bats,Throws,Profile URL,Showcase Report,Scraped At',
+      'ID,Player ID,Name,Height,Weight,Grad Year,Positions,Bats,Throws,City,State,Team Last Played,Profile URL,Showcase Report,Scraped At',
       ...playerData.map(player => 
-        `${player.id},"${player.player_id}","${player.name}","${player.height}","${player.weight}","${player.graduation_year}","${player.positions}","${player.bats}","${player.throws}","${player.profile_url}","${player.showcase_report}","${player.scraped_at}"`
+        `${player.id},"${player.player_id}","${player.name}","${player.height}","${player.weight}","${player.graduation_year}","${player.positions}","${player.bats}","${player.throws}","${player.city}","${player.state}","${player.team_last_played}","${player.profile_url}","${player.showcase_report}","${player.scraped_at}"`
       )
     ].join('\n');
 

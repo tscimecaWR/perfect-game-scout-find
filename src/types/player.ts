@@ -11,6 +11,7 @@ export interface PlayerData {
   throws: string;
   city: string | null;
   state: string | null;
+  team_last_played: string | null;
   profile_url: string;
   showcase_report: string;
   scraped_at: string;
