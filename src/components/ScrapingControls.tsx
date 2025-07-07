@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Play, Pause, Download, RotateCcw, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Pause, Download, Zap } from 'lucide-react';
 
 interface ScrapingControlsProps {
   currentId: number;
@@ -167,16 +167,6 @@ export const ScrapingControls: React.FC<ScrapingControlsProps> = ({
             >
               <Download className="w-4 h-4" />
               Export CSV
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onResetData}
-              disabled={playerDataLength === 0}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
             </Button>
           </div>
         </div>
